@@ -6,6 +6,7 @@ import { google } from 'googleapis';
 import url from 'url';
 import { webSafeBase64Encode } from './lib/encoder';
 import { MessageSchema } from './lib/message';
+import { Redis } from '@upstash/redis/nodejs';
 
 const app = express();
 const port = 3000;
@@ -42,6 +43,11 @@ const gmail = google.gmail({
 	auth: oauth2client,
 });
 
+const redis = new Redis({
+	url: process.env.UPSTASH_REDIS_REST_URL!,
+	token: process.env.UPSTASH_REDIS_REST_TOKEN!,
+});
+
 app.get('/', (req, res) => {
 	res.redirect(authorizationUrl);
 });
@@ -50,7 +56,7 @@ app.get('/oauth2callback', async (req, res) => {
 	try {
 		let q = url.parse(req.url, true).query;
 		let { tokens } = await oauth2client.getToken(q.code as string);
-		fs.writeFileSync(tokenFilePath, JSON.stringify(tokens));
+		await redis.set('token', JSON.stringify(tokens));
 		oauth2client.setCredentials(tokens);
 		res.status(200).send();
 	} catch (e) {
@@ -67,9 +73,8 @@ app.post('/send', async (req, res) => {
 
 		const message = `From: ${senderName} <${senderEmail}>\nTo: Antek <antek.olesik@gmail.com>\nSubject: New message from Portfolio\n\nSender: ${senderName} <${senderEmail}>\n${messageContent}`;
 
-		oauth2client.setCredentials(
-			JSON.parse(fs.readFileSync(tokenFilePath).toString())
-		);
+		const token = (await redis.get('token')) as string;
+		oauth2client.setCredentials(JSON.parse(token));
 		let { data } = await gmail.users.messages.send({
 			userId: 'me',
 			requestBody: {
