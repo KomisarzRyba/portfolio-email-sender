@@ -10,7 +10,7 @@ import { MessageSchema } from './lib/message';
 const app = express();
 const port = 3000;
 
-const tokenFilePath = './token.json';
+const tokenFilePath = 'token.json';
 
 dotenv.config();
 
