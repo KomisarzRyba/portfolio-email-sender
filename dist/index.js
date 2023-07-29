@@ -22,7 +22,7 @@ const encoder_1 = require("./lib/encoder");
 const message_1 = require("./lib/message");
 const app = (0, express_1.default)();
 const port = 3000;
-const tokenFilePath = './token.json';
+const tokenFilePath = 'token.json';
 dotenv_1.default.config();
 app.use(express_1.default.json());
 app.use((0, cors_1.default)({ origin: 'https://www.antekolesik.dev' }));
@@ -52,9 +52,10 @@ app.get('/oauth2callback', (req, res) => __awaiter(void 0, void 0, void 0, funct
         let { tokens } = yield oauth2client.getToken(q.code);
         fs_1.default.writeFileSync(tokenFilePath, JSON.stringify(tokens));
         oauth2client.setCredentials(tokens);
-        res.status(200).redirect('/send');
+        res.status(200).send();
     }
     catch (e) {
+        console.log(e);
         res.status(500).send();
     }
 }));
