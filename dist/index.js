@@ -15,11 +15,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const cors_1 = __importDefault(require("cors"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const express_1 = __importDefault(require("express"));
-const fs_1 = __importDefault(require("fs"));
 const googleapis_1 = require("googleapis");
 const url_1 = __importDefault(require("url"));
 const encoder_1 = require("./lib/encoder");
 const message_1 = require("./lib/message");
+const nodejs_1 = require("@upstash/redis/nodejs");
 const app = (0, express_1.default)();
 const port = 3000;
 const tokenFilePath = 'token.json';
@@ -43,6 +43,10 @@ const gmail = googleapis_1.google.gmail({
     version: 'v1',
     auth: oauth2client,
 });
+const redis = new nodejs_1.Redis({
+    url: process.env.UPSTASH_REDIS_REST_URL,
+    token: process.env.UPSTASH_REDIS_REST_TOKEN,
+});
 app.get('/', (req, res) => {
     res.redirect(authorizationUrl);
 });
@@ -50,7 +54,7 @@ app.get('/oauth2callback', (req, res) => __awaiter(void 0, void 0, void 0, funct
     try {
         let q = url_1.default.parse(req.url, true).query;
         let { tokens } = yield oauth2client.getToken(q.code);
-        fs_1.default.writeFileSync(tokenFilePath, JSON.stringify(tokens));
+        yield redis.set('token', JSON.stringify(tokens));
         oauth2client.setCredentials(tokens);
         res.status(200).send();
     }
@@ -64,7 +68,8 @@ app.post('/send', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
         const body = req.body;
         const { senderName, senderEmail, messageContent } = message_1.MessageSchema.parse(body);
         const message = `From: ${senderName} <${senderEmail}>\nTo: Antek <antek.olesik@gmail.com>\nSubject: New message from Portfolio\n\nSender: ${senderName} <${senderEmail}>\n${messageContent}`;
-        oauth2client.setCredentials(JSON.parse(fs_1.default.readFileSync(tokenFilePath).toString()));
+        const token = (yield redis.get('token'));
+        oauth2client.setCredentials(JSON.parse(token));
         let { data } = yield gmail.users.messages.send({
             userId: 'me',
             requestBody: {
