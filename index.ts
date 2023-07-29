@@ -52,8 +52,9 @@ app.get('/oauth2callback', async (req, res) => {
 		let { tokens } = await oauth2client.getToken(q.code as string);
 		fs.writeFileSync(tokenFilePath, JSON.stringify(tokens));
 		oauth2client.setCredentials(tokens);
-		res.status(200).redirect('/send');
+		res.status(200).send();
 	} catch (e) {
+		console.log(e);
 		res.status(500).send();
 	}
 });
