@@ -18,8 +18,7 @@ app.use(cors({ origin: 'https://www.antekolesik.dev' }));
 const oauth2client = new google.auth.OAuth2(
 	process.env.GOOGLE_OAUTH_CLIENT_ID,
 	process.env.GOOGLE_OAUTH_CLIENT_SECRET,
-	// 'https://www.contactapi.antekolesik.dev/oauth2callback'
-	'http://localhost:3000/oauth2callback'
+	process.env.GOOGLE_OAUTH_REDIRECT_URI
 );
 
 const scopes = [

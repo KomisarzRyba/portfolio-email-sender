@@ -25,9 +25,7 @@ const port = 3000;
 dotenv_1.default.config();
 app.use(express_1.default.json());
 app.use((0, cors_1.default)({ origin: 'https://www.antekolesik.dev' }));
-const oauth2client = new googleapis_1.google.auth.OAuth2(process.env.GOOGLE_OAUTH_CLIENT_ID, process.env.GOOGLE_OAUTH_CLIENT_SECRET, 
-// 'https://www.contactapi.antekolesik.dev/oauth2callback'
-'http://localhost:3000/oauth2callback');
+const oauth2client = new googleapis_1.google.auth.OAuth2(process.env.GOOGLE_OAUTH_CLIENT_ID, process.env.GOOGLE_OAUTH_CLIENT_SECRET, process.env.GOOGLE_OAUTH_REDIRECT_URI);
 const scopes = [
     'https://mail.google.com/',
     'https://www.googleapis.com/auth/gmail.addons.current.action.compose',
