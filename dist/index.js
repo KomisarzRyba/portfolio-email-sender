@@ -12,6 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+const nodejs_1 = require("@upstash/redis/nodejs");
 const cors_1 = __importDefault(require("cors"));
 const dotenv_1 = __importDefault(require("dotenv"));
 const express_1 = __importDefault(require("express"));
@@ -19,14 +20,14 @@ const googleapis_1 = require("googleapis");
 const url_1 = __importDefault(require("url"));
 const encoder_1 = require("./lib/encoder");
 const message_1 = require("./lib/message");
-const nodejs_1 = require("@upstash/redis/nodejs");
 const app = (0, express_1.default)();
 const port = 3000;
-const tokenFilePath = 'token.json';
 dotenv_1.default.config();
 app.use(express_1.default.json());
 app.use((0, cors_1.default)({ origin: 'https://www.antekolesik.dev' }));
-const oauth2client = new googleapis_1.google.auth.OAuth2(process.env.GOOGLE_OAUTH_CLIENT_ID, process.env.GOOGLE_OAUTH_CLIENT_SECRET, 'https://www.contactapi.antekolesik.dev/oauth2callback');
+const oauth2client = new googleapis_1.google.auth.OAuth2(process.env.GOOGLE_OAUTH_CLIENT_ID, process.env.GOOGLE_OAUTH_CLIENT_SECRET, 
+// 'https://www.contactapi.antekolesik.dev/oauth2callback'
+'http://localhost:3000/oauth2callback');
 const scopes = [
     'https://mail.google.com/',
     'https://www.googleapis.com/auth/gmail.addons.current.action.compose',
@@ -54,7 +55,7 @@ app.get('/oauth2callback', (req, res) => __awaiter(void 0, void 0, void 0, funct
     try {
         let q = url_1.default.parse(req.url, true).query;
         let { tokens } = yield oauth2client.getToken(q.code);
-        yield redis.set('token', JSON.stringify(tokens));
+        yield redis.json.set('token', '$', JSON.stringify(tokens));
         oauth2client.setCredentials(tokens);
         res.status(200).send();
     }
@@ -65,11 +66,10 @@ app.get('/oauth2callback', (req, res) => __awaiter(void 0, void 0, void 0, funct
 }));
 app.post('/send', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const body = req.body;
-        const { senderName, senderEmail, messageContent } = message_1.MessageSchema.parse(body);
+        const { senderName, senderEmail, messageContent } = message_1.MessageSchema.parse(req.body);
         const message = `From: ${senderName} <${senderEmail}>\nTo: Antek <antek.olesik@gmail.com>\nSubject: New message from Portfolio\n\nSender: ${senderName} <${senderEmail}>\n${messageContent}`;
-        const token = (yield redis.get('token'));
-        oauth2client.setCredentials(JSON.parse(token));
+        const token = yield redis.json.get('token');
+        oauth2client.setCredentials(token);
         let { data } = yield gmail.users.messages.send({
             userId: 'me',
             requestBody: {

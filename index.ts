@@ -1,17 +1,14 @@
+import { Redis } from '@upstash/redis/nodejs';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import express from 'express';
-import fs from 'fs';
 import { google } from 'googleapis';
 import url from 'url';
 import { webSafeBase64Encode } from './lib/encoder';
 import { MessageSchema } from './lib/message';
-import { Redis } from '@upstash/redis/nodejs';
 
 const app = express();
 const port = 3000;
-
-const tokenFilePath = 'token.json';
 
 dotenv.config();
 
@@ -21,7 +18,8 @@ app.use(cors({ origin: 'https://www.antekolesik.dev' }));
 const oauth2client = new google.auth.OAuth2(
 	process.env.GOOGLE_OAUTH_CLIENT_ID,
 	process.env.GOOGLE_OAUTH_CLIENT_SECRET,
-	'https://www.contactapi.antekolesik.dev/oauth2callback'
+	// 'https://www.contactapi.antekolesik.dev/oauth2callback'
+	'http://localhost:3000/oauth2callback'
 );
 
 const scopes = [
@@ -56,7 +54,7 @@ app.get('/oauth2callback', async (req, res) => {
 	try {
 		let q = url.parse(req.url, true).query;
 		let { tokens } = await oauth2client.getToken(q.code as string);
-		await redis.set('token', JSON.stringify(tokens));
+		await redis.json.set('token', '$', JSON.stringify(tokens));
 		oauth2client.setCredentials(tokens);
 		res.status(200).send();
 	} catch (e) {
@@ -67,14 +65,15 @@ app.get('/oauth2callback', async (req, res) => {
 
 app.post('/send', async (req, res) => {
 	try {
-		const body = req.body;
-		const { senderName, senderEmail, messageContent } =
-			MessageSchema.parse(body);
+		const { senderName, senderEmail, messageContent } = MessageSchema.parse(
+			req.body
+		);
 
 		const message = `From: ${senderName} <${senderEmail}>\nTo: Antek <antek.olesik@gmail.com>\nSubject: New message from Portfolio\n\nSender: ${senderName} <${senderEmail}>\n${messageContent}`;
 
-		const token = (await redis.get('token')) as string;
-		oauth2client.setCredentials(JSON.parse(token));
+		const token = await redis.json.get('token');
+		oauth2client.setCredentials(token);
+
 		let { data } = await gmail.users.messages.send({
 			userId: 'me',
 			requestBody: {
