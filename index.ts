@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import express from 'express';
 import { google } from 'googleapis';
+import { Credentials } from 'google-auth-library/build/src/auth/credentials';
 import url from 'url';
 import { webSafeBase64Encode } from './lib/encoder';
 import { MessageSchema } from './lib/message';
@@ -53,8 +54,8 @@ app.get('/oauth2callback', async (req, res) => {
 	try {
 		let q = url.parse(req.url, true).query;
 		let { tokens } = await oauth2client.getToken(q.code as string);
+		// oauth2client.setCredentials(tokens);
 		await redis.json.set('token', '$', JSON.stringify(tokens));
-		oauth2client.setCredentials(tokens);
 		res.status(200).send();
 	} catch (e) {
 		console.log(e);
@@ -68,10 +69,20 @@ app.post('/send', async (req, res) => {
 			req.body
 		);
 
+		// compose a message
 		const message = `From: ${senderName} <${senderEmail}>\nTo: Antek <antek.olesik@gmail.com>\nSubject: New message from Portfolio\n\nSender: ${senderName} <${senderEmail}>\n${messageContent}`;
 
-		const token = await redis.json.get('token');
-		oauth2client.setCredentials(token);
+		// get credentials from redis
+		const tokens = (await redis.json.get('token')) as Credentials;
+		if (!tokens) {
+			throw new Error(
+				'No credentials found or wrong credentials fetched'
+			);
+		}
+
+		oauth2client.setCredentials({
+			refresh_token: tokens.refresh_token,
+		});
 
 		let { data } = await gmail.users.messages.send({
 			userId: 'me',

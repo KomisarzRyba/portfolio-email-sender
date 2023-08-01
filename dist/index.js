@@ -53,8 +53,8 @@ app.get('/oauth2callback', (req, res) => __awaiter(void 0, void 0, void 0, funct
     try {
         let q = url_1.default.parse(req.url, true).query;
         let { tokens } = yield oauth2client.getToken(q.code);
+        // oauth2client.setCredentials(tokens);
         yield redis.json.set('token', '$', JSON.stringify(tokens));
-        oauth2client.setCredentials(tokens);
         res.status(200).send();
     }
     catch (e) {
@@ -65,9 +65,16 @@ app.get('/oauth2callback', (req, res) => __awaiter(void 0, void 0, void 0, funct
 app.post('/send', (req, res) => __awaiter(void 0, void 0, void 0, function* () {
     try {
         const { senderName, senderEmail, messageContent } = message_1.MessageSchema.parse(req.body);
+        // compose a message
         const message = `From: ${senderName} <${senderEmail}>\nTo: Antek <antek.olesik@gmail.com>\nSubject: New message from Portfolio\n\nSender: ${senderName} <${senderEmail}>\n${messageContent}`;
-        const token = yield redis.json.get('token');
-        oauth2client.setCredentials(token);
+        // get credentials from redis
+        const tokens = (yield redis.json.get('token'));
+        if (!tokens) {
+            throw new Error('No credentials found or wrong credentials fetched');
+        }
+        oauth2client.setCredentials({
+            refresh_token: tokens.refresh_token,
+        });
         let { data } = yield gmail.users.messages.send({
             userId: 'me',
             requestBody: {
